@@ -557,6 +557,10 @@
       <div class="nav-section">중점관리지표</div>
       <div class="nav-item" data-page="relationship" onclick="navigate('relationship')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M12 8v3M9.5 15l-2 2M14.5 15l2 2"/></svg>
+        중점관리지표
+      </div>
+      <div class="nav-item" data-page="focus-map" onclick="navigate('focus-map')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h6v6H4zM14 13h6v6h-6zM7 11v3a3 3 0 003 3h4M17 13v-3a3 3 0 00-3-3h-4"/></svg>
         중점관리지표 매핑
       </div>
 
@@ -8291,6 +8295,7 @@ function buildDepartmentPage(deptName, container) {
   const period = STORE.currentPeriod;
   if (isProcurementRdDept(deptName)) {
     renderProcurementRdDashboard(deptName, container);
+    applyDepartmentKpiFocus();
     return;
   }
   const dataCategory = deptName === '기획' ? '경영지원' : (deptName === '구매·R&D' ? '구매' : deptName);
@@ -8362,7 +8367,11 @@ function buildDepartmentPage(deptName, container) {
   `;
 
   // Render Hero KPIs
-  const heroIds = kpis.slice(0, 5).map(k => k.id);
+  // 중점관리지표 매핑에서 진입하면 요청 KPI를 카드 맨 앞에 배치한다.
+  const focusIds = departmentKpiFocus?.page === currentPage ? (departmentKpiFocus.kpiIds || []) : [];
+  const heroIds = [...focusIds, ...kpis.map(k => k.id)]
+    .filter((id, index, ids) => ids.indexOf(id) === index)
+    .slice(0, 5);
   document.getElementById('dept-heroes').innerHTML = heroIds.map(id => {
     const kpi = getKPI(id);
     const m = getMonthlyValue(period, id);
@@ -8374,7 +8383,7 @@ function buildDepartmentPage(deptName, container) {
     const displayAchievement = heroMetric.achievement ?? m.achievement;
     const sourceNote = heroMetric.sourceNote || '전사 KPI';
     return `
-      <div class="kpi-card status-${m.status}">
+      <div id="dept-kpi-${id}" class="kpi-card status-${m.status}">
         <div class="flex items-center justify-between mb-1">
           <div class="text-xs font-medium" style="color: var(--color-text-muted);">${kpi.name}</div>
           <span class="text-[10px] px-2 py-0.5 rounded-full" style="background:#EFF6FF; color:#2563EB;">${period.replace('-', '.')} 당월</span>
@@ -8409,6 +8418,7 @@ function buildDepartmentPage(deptName, container) {
   }
   renderDeptSpecial(deptName);
   renderPlanningWaterfalls(deptName);
+  applyDepartmentKpiFocus();
 }
 
 
@@ -11032,6 +11042,8 @@ PAGES['dept-logistics'] = c => buildDepartmentPage('물류', c);
 PAGES['dept-production'] = c => buildDepartmentPage('생산', c);
 PAGES['dept-procurement'] = c => buildDepartmentPage('구매·R&D', c);
 PAGES['dept-planning'] = c => buildDepartmentPage('기획', c);
+PAGES['dept-quality'] = c => buildDepartmentPage('품질', c);
+PAGES['dept-management'] = c => buildDepartmentPage('경영지원', c);
 
 // ============================================================================
 // PAGE: CROSS-FUNCTIONAL ANALYSIS
@@ -11364,6 +11376,47 @@ function renderFocusKpiInput(content) {
     </section>`;
 }
 
+let departmentKpiFocus = null;
+function openDepartmentFocus(page, targetId, label, kpiIds = '') {
+  departmentKpiFocus = { page, targetId, label, kpiIds: kpiIds ? kpiIds.split(',').filter(Boolean) : [] };
+  navigate(page);
+}
+
+function applyDepartmentKpiFocus() {
+  const focus = departmentKpiFocus;
+  if (!focus || focus.page !== currentPage) return;
+  requestAnimationFrame(() => {
+    const kpiTarget = focus.kpiIds.map(id => document.getElementById(`dept-kpi-${id}`)).find(Boolean);
+    const target = kpiTarget || document.getElementById(focus.targetId) || document.getElementById('dept-heroes');
+    if (!target) return;
+    const previousOutline = target.style.outline;
+    const previousOffset = target.style.outlineOffset;
+    target.style.outline = '3px solid #38BDF8';
+    target.style.outlineOffset = '4px';
+    target.scrollIntoView({ behavior:'smooth', block:'start' });
+    setTimeout(() => { target.style.outline = previousOutline; target.style.outlineOffset = previousOffset; }, 2200);
+  });
+  departmentKpiFocus = null;
+}
+
+PAGES['focus-map'] = function(container) {
+  const mappings = [
+    { label:'원재료비, 축종별 예상 제품 원재료비', source:'구매 · 연구', tab:'구매', page:'dept-procurement', target:'procurement-monthly-chart-card', area:'원료 단가 및 제품 원재료비', unit:'전체, 외자, 내자, 축종별' },
+    { label:'판매량, 순매출액, 판가, 유통실적', source:'영업', tab:'영업', page:'dept-sales', target:'dept-heroes', kpiIds:['SAL001','SAL006','SAL007'], area:'판매량·매출·판가·유통', unit:'전체, 양돈, 양계, 축우, 양어, 유통' },
+    { label:'영업이익, SPREAD 단가, M/S', source:'기획', tab:'기획', page:'dept-planning', target:'dept-heroes', kpiIds:['FIN001','SAL010'], area:'손익 및 Spread', unit:'전체, 축종별, 유통' },
+    { label:'물류비', source:'물류', tab:'물류', page:'dept-logistics', target:'dept-heroes', kpiIds:['LOG001'], area:'물류비 지출현황', unit:'전체, 이고, 배달, 용역, 좌대' },
+    { label:'생산성·가동률, CAPA, 제조원가, SKU, 안전', source:'생산', tab:'생산', page:'dept-production', target:'production-reports', area:'공급전략·제조원가·생산성', unit:'공장, 공정, 축종별' },
+    { label:'고객불만, 반품 발생비율, 부적합 발생비율', source:'품질', tab:'품질', page:'dept-quality', target:'dept-heroes', kpiIds:['QLT001','QLT002','QLT003'], area:'품질 관리지표', unit:'전체, 인천, 창원, 전주' },
+    { label:'신용 기준미달 거래처, 대여금 한도, 회전일수', source:'신용', tab:'경영지원', page:'dept-management', target:'dept-heroes', kpiIds:['SAL013'], area:'신용관리 및 자금지원', unit:'전체, 축종별' },
+    { label:'인당 판매량, 신규 대리점·거래처, 핵심 사양가, 활동지표', source:'영업', tab:'영업', page:'dept-sales', target:'dept-special', area:'영업 활동지표', unit:'전체, 영업조직, 축종별' }
+  ];
+  container.innerHTML = `
+    <div class="mb-5"><h1 class="text-2xl font-bold">중점관리지표 매핑</h1><p class="text-sm mt-1" style="color:var(--color-text-muted);">중점관리지표 원본의 담당 부서와 대시보드 표시 영역을 연결합니다.</p></div>
+    <style>.focus-map-row{cursor:pointer}.focus-map-row:hover td,.focus-map-row:hover th{background:#EAF4FF!important}.focus-map-row:focus{outline:2px solid #2563EB;outline-offset:-2px}.focus-map-table{border-collapse:collapse;table-layout:fixed;font-size:13px}.focus-map-table th,.focus-map-table td{border:1px solid #D7E2F0;padding:11px 12px}.focus-map-table thead th{background:#173565;color:#fff;font-weight:700;text-align:center}.focus-map-table tbody th{background:#D9EAF8;text-align:left;font-weight:700}.focus-map-table tbody td{background:#fff}.focus-map-table tbody tr:nth-child(even) td{background:#F8FBFE}.focus-kpi-target{outline:3px solid #38BDF8;outline-offset:4px;transition:outline-color .3s}</style>
+    <div class="card" style="overflow:hidden;"><div style="overflow-x:auto;"><table class="focus-map-table" style="min-width:1050px;width:100%;"><thead><tr><th>중점관리지표</th><th>원본 담당 부서</th><th>대시보드 탭</th><th>대시보드 영역</th><th>관리 단위</th></tr></thead><tbody>${mappings.map(row => `<tr class="focus-map-row" role="button" tabindex="0" onclick="openDepartmentFocus('${row.page}','${row.target}','${row.label}','${(row.kpiIds || []).join(',')}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><th>${row.label}</th><td>${row.source}</td><td>${row.tab}</td><td>${row.area}</td><td>${row.unit}</td></tr>`).join('')}</tbody></table></div></div>
+  `;
+};
+
 PAGES.relationship = function(container) {
   const period = STORE.currentPeriod;
   const periods = activePeriods();
@@ -11390,47 +11443,38 @@ PAGES.relationship = function(container) {
   };
   const allRows = FOCUS_KPI_REGISTRY.map(summary);
   const filteredRows = allRows.filter(row => {
-    if (focusKpiMappingFilter === 'connected') return Boolean(row.kpi);
-    if (focusKpiMappingFilter === 'pending') return !row.kpi;
     return focusKpiMappingFilter === 'all' || row.department === focusKpiMappingFilter;
   });
-  const connected = allRows.filter(row => row.kpi).length;
   const valueText = (value, kpi) => value === null || value === undefined || !Number.isFinite(Number(value)) ? '-' : formatNumber(value, kpiDisplayDecimals(kpi, value));
   const percentText = value => value === null || value === undefined || !Number.isFinite(Number(value)) ? '-' : `${formatNumber(value, 1)}%`;
   const cellDisplay = (row, column, sourceValue, kpi = row.kpi) => valueText(focusKpiStoredValue(row, column, sourceValue), kpi);
-  const badge = row => {
-    if (!row.kpi) return '<span class="badge" style="background:#F1F5F9;color:#64748B;">입력 대기</span>';
-    const color = row.current ? statusColor(row.current.status) : '#64748B';
-    const label = row.current ? row.current.status : '수치 대기';
-    return `<span class="badge" style="background:${color}18;color:${color};">${label}</span>`;
-  };
+  const groupedRows = filteredRows.reduce((groups, row) => {
+    const group = groups.find(item => item.indicator === row.indicator);
+    if (group) group.rows.push(row); else groups.push({ indicator:row.indicator, rows:[row] });
+    return groups;
+  }, []);
 
   container.innerHTML = `
     <div class="mb-5 flex items-center justify-between gap-3" style="flex-wrap:wrap;">
-      <div><h1 class="text-2xl font-bold">중점관리지표 현황</h1><p class="text-sm mt-1" style="color:var(--color-text-muted);">${period.replace('-', '년 ')}월 기준 · 지표와 항목 단위로 대시보드 데이터 연결 상태를 관리합니다.</p></div>
+      <div><h1 class="text-2xl font-bold">중점관리지표 현황</h1><p class="text-sm mt-1" style="color:var(--color-text-muted);">${period.replace('-', '년 ')}월 기준 · 지표와 항목 단위로 관리합니다.</p></div>
       <div class="flex gap-2"><button class="btn-secondary" onclick="navigate('input');switchInputTab('focus')">데이터 입력</button><select class="input" style="width:180px;" onchange="setFocusKpiMappingFilter(this.value)">
           <option value="all" ${focusKpiMappingFilter === 'all' ? 'selected' : ''}>전체 부서</option>
           ${departments.map(dept => `<option value="${dept}" ${focusKpiMappingFilter === dept ? 'selected' : ''}>${dept}</option>`).join('')}
-          <option value="connected" ${focusKpiMappingFilter === 'connected' ? 'selected' : ''}>대시보드 연결됨</option>
-          <option value="pending" ${focusKpiMappingFilter === 'pending' ? 'selected' : ''}>입력 대기</option>
         </select></div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-      <div class="card p-4"><div class="text-xs" style="color:var(--color-text-muted);">관리 항목</div><div class="text-2xl font-bold mt-1">${allRows.length}개</div></div>
-      <div class="card p-4"><div class="text-xs" style="color:var(--color-text-muted);">대시보드 연결</div><div class="text-2xl font-bold mt-1">${connected}개</div></div>
-      <div class="card p-4"><div class="text-xs" style="color:var(--color-text-muted);">추가 입력 필요</div><div class="text-2xl font-bold mt-1">${allRows.length - connected}개</div></div>
-    </div>
     <div class="card" style="overflow:hidden;"><div style="overflow-x:auto;">
-      <table class="data-table" style="min-width:3000px;">
+      <style>
+        .focus-map-row{cursor:pointer}.focus-map-row:hover td{background:#EAF4FF!important}.focus-map-row:focus{outline:2px solid #2563EB;outline-offset:-2px}
+        .focus-kpi-view{border-collapse:collapse;table-layout:fixed;font-size:12px}.focus-kpi-view th,.focus-kpi-view td{border:1px solid #D7E2F0;padding:9px 8px;white-space:nowrap}.focus-kpi-view thead th{background:#173565;color:#fff;font-weight:700;text-align:center}.focus-kpi-view .focus-kpi-indicator{background:#D9EAF8;font-weight:700;text-align:center;white-space:normal;min-width:126px}.focus-kpi-view .focus-kpi-item{background:#F5F8FC;font-weight:600;min-width:130px}.focus-kpi-view .focus-kpi-meta{background:#FAFCFE}.focus-kpi-view .focus-kpi-value{background:#FFFBE1}.focus-kpi-view .focus-kpi-group-start td,.focus-kpi-view .focus-kpi-group-start th{border-top-width:3px;border-top-color:#84A9CC}.focus-kpi-view .focus-kpi-annual{background:#EAF6EE}
+      </style>
+      <table class="focus-kpi-view" style="min-width:3000px;">
         <thead><tr><th>지표</th><th>부서</th><th>회의체</th><th>목표</th><th>항목</th><th class="text-right">'26년 목표</th><th class="text-right">'25년실적</th><th class="text-right">26년 누적</th><th class="text-right">목표대비</th>${EXEC_PLAN_PERIODS.map(item => `<th class="text-right">'26년 ${Number(item.slice(5))}월</th>`).join('')}</tr></thead>
-        <tbody>${filteredRows.map(row => `<tr>
-          <td class="font-semibold">${row.indicator}</td><td>${row.department}</td><td>${row.committee}</td><td>${row.goal || '-'}</td><td>${row.item}</td>
-          <td class="text-right">${cellDisplay(row, 'target26', row.annualTarget)}</td>
-          <td class="text-right">${cellDisplay(row, 'actual25', row.lyActual)}</td>
-          <td class="text-right font-semibold">${cellDisplay(row, 'cumulative26', row.cumulativeActual)}</td>
-          <td class="text-right">${(() => { const target = focusKpiStoredValue(row, 'target26', row.annualTarget); const actual = focusKpiStoredValue(row, 'cumulative26', row.cumulativeActual); return percentText(row.kpi ? row.cumulativeAchievement : (Number(target) ? Number(actual || 0) / Number(target) * 100 : null)); })()}</td>
-          ${EXEC_PLAN_PERIODS.map(month => { const source = row.kpi ? getMonthlyValue(month, row.kpi.id)?.actual : null; return `<td class="text-right">${cellDisplay(row, month, source)}</td>`; }).join('')}
-        </tr>`).join('')}</tbody>
+        <tbody>${groupedRows.map(group => group.rows.map((row, index) => `<tr class="${index === 0 ? 'focus-kpi-group-start' : ''}">
+          ${index === 0 ? `<th class="focus-kpi-indicator" rowspan="${group.rows.length}">${group.indicator}</th>` : ''}
+          <td class="focus-kpi-meta">${row.department}</td><td class="focus-kpi-meta">${row.committee}</td><td class="focus-kpi-meta">${row.goal || '-'}</td><th class="focus-kpi-item">${row.item}</th>
+          <td class="text-right focus-kpi-annual">${cellDisplay(row, 'target26', row.annualTarget)}</td><td class="text-right focus-kpi-value">${cellDisplay(row, 'actual25', row.lyActual)}</td><td class="text-right focus-kpi-value font-semibold">${cellDisplay(row, 'cumulative26', row.cumulativeActual)}</td><td class="text-right focus-kpi-value">${(() => { const target = focusKpiStoredValue(row, 'target26', row.annualTarget); const actual = focusKpiStoredValue(row, 'cumulative26', row.cumulativeActual); return percentText(row.kpi ? row.cumulativeAchievement : (Number(target) ? Number(actual || 0) / Number(target) * 100 : null)); })()}</td>
+          ${EXEC_PLAN_PERIODS.map(month => { const source = row.kpi ? getMonthlyValue(month, row.kpi.id)?.actual : null; return `<td class="text-right focus-kpi-value">${cellDisplay(row, month, source)}</td>`; }).join('')}
+        </tr>`).join('')).join('')}</tbody>
       </table>
     </div></div>
   `;
