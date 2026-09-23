@@ -1284,6 +1284,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   STORE.currentUser = DEMO_USERS[0]; // Admin
   applyPreloadedSourceData();
   loadTableOverrides();
+  loadManualMonthlyData();
   await loadProcurementCommodityMarket();
   await loadManualCloudState();
   showApp();
@@ -3673,6 +3674,35 @@ function downloadManualInputTemplate() {
 
 
 const TABLE_OVERRIDE_STORAGE_KEY = 'daehanfeed.tableOverrides.v1';
+const MANUAL_MONTHLY_STORAGE_KEY = 'daehanfeed.manualMonthlyData.v1';
+
+function manualMonthlyRows() {
+  return (STORE.monthlyData || []).filter(row =>
+    ['Manual', 'ManualPaste', 'DepartmentTableInput'].includes(row.inputMethod)
+  );
+}
+
+function loadManualMonthlyData() {
+  try {
+    const savedRows = JSON.parse(localStorage.getItem(MANUAL_MONTHLY_STORAGE_KEY) || '[]');
+    if (!Array.isArray(savedRows) || !savedRows.length) return;
+    const indexed = new Map((STORE.monthlyData || []).map(row => [`${row.period}|${row.kpiId}`, row]));
+    savedRows.forEach(row => {
+      if (row?.period && row?.kpiId) indexed.set(`${row.period}|${row.kpiId}`, row);
+    });
+    STORE.monthlyData = [...indexed.values()];
+  } catch (err) {
+    console.warn('수기 KPI 로컬 저장값을 불러오지 못했습니다.', err);
+  }
+}
+
+function persistManualMonthlyData() {
+  try {
+    localStorage.setItem(MANUAL_MONTHLY_STORAGE_KEY, JSON.stringify(manualMonthlyRows()));
+  } catch (err) {
+    console.warn('수기 KPI 로컬 저장에 실패했습니다.', err);
+  }
+}
 
 function loadTableOverrides() {
   try {
@@ -3859,10 +3889,8 @@ function tableSourceHasValue(value) {
 }
 
 function tableOverrideValue(tableId, rowKey, colKey, sourceValue) {
-  if (tableSourceHasValue(sourceValue)) return sourceValue;
   const item = (STORE.tableOverrides || {})[tableOverrideKey(tableId, rowKey, colKey)];
-  if (!item) return sourceValue;
-  return item.value;
+  return item && tableSourceHasValue(item.value) ? item.value : sourceValue;
 }
 
 
@@ -5223,6 +5251,7 @@ function saveManualInput(options = {}) {
     }
   });
   if (!options.silent) toast('데이터가 저장되었습니다.');
+  persistManualMonthlyData();
   renderInputTable();
 }
 
@@ -13037,6 +13066,7 @@ function applyManualCloudPayload(payload) {
     const indexed = new Map(STORE.monthlyData.map(row => [`${row.period}|${row.kpiId}`, row]));
     manualRows.forEach(row => indexed.set(`${row.period}|${row.kpiId}`, row));
     STORE.monthlyData = [...indexed.values()];
+    persistManualMonthlyData();
   }
   if (payload.tableOverrides && typeof payload.tableOverrides === 'object') {
     STORE.tableOverrides = payload.tableOverrides;
