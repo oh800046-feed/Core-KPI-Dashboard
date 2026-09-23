@@ -4863,7 +4863,7 @@ function renderSalesCreditStatusTable() {
   }).join('');
 
   return [
-    '<div class="card p-4 lg:col-span-2">',
+    '<div id="sales-credit-status-card" class="card p-4 lg:col-span-2">',
       '<div class="flex items-start justify-between gap-3 mb-3">',
         '<div>',
           '<h3 class="font-bold">신용관리 및 자금지원현황</h3>',
@@ -7340,6 +7340,16 @@ function isProcurementRdDept(deptName) {
 }
 
 function getProcurementRdData() {
+  const comparison = getProcurementRdComparisonData();
+  if (comparison?.periods?.length === 12 && comparison.periods.every(period => String(period).startsWith('2026-'))) {
+    const rows = (comparison.rows || [])
+      .filter(row => ['양계', '양돈', '축우', '양어'].includes(row.major))
+      .map(row => {
+        const months = row.currentPlan || row.businessPlan || [];
+        return { major: row.major, months, average: procurementAverage(months) };
+      });
+    if (rows.length) return { ...comparison, rows };
+  }
   const preloaded = typeof PRELOADED_SOURCE_DATA !== 'undefined' ? PRELOADED_SOURCE_DATA.procurementRd : null;
   return STORE.procurementRd || preloaded || null;
 }
@@ -8318,7 +8328,7 @@ function buildDepartmentPage(deptName, container) {
     </div>
 
     ${deptName === '생산' ? renderProductionReports() : ''}
-    ${['물류','기획','생산'].includes(deptName) ? '' : renderMeetingBlueprint(deptName)}
+    ${['영업','물류','기획','생산'].includes(deptName) ? '' : renderMeetingBlueprint(deptName)}
     ${renderPlanningFinanceSnapshot(deptName)}
     ${renderPlanningWaterfallSection(deptName)}
 
@@ -8634,8 +8644,8 @@ function renderDeptTrend(dept, kpis) {
   }
   const t = chartTheme();
   const periods = activePeriods();
-  const keyKpis = kpis.slice(0, 4);
-  const colors = ['#1E40AF','#10B981','#F59E0B','#EF4444'];
+  const keyKpis = dept === '영업' ? kpis.slice(0, 5) : kpis.slice(0, 4);
+  const colors = ['#1E40AF','#10B981','#F59E0B','#EF4444','#8B5CF6'];
 
   if (dept === '기획') {
     const root = document.getElementById('dept-trend');
@@ -11402,12 +11412,11 @@ function applyDepartmentKpiFocus() {
 PAGES['focus-map'] = function(container) {
   const mappings = [
     { label:'원재료비, 축종별 예상 제품 원재료비', source:'구매 · 연구', tab:'구매', page:'dept-procurement', target:'procurement-monthly-chart-card', area:'원료 단가 및 제품 원재료비', unit:'전체, 외자, 내자, 축종별' },
-    { label:'판매량, 순매출액, 판가, 유통실적', source:'영업', tab:'영업', page:'dept-sales', target:'dept-heroes', kpiIds:['SAL001','SAL006','SAL007'], area:'판매량·매출·판가·유통', unit:'전체, 양돈, 양계, 축우, 양어, 유통' },
+    { label:'판매량, 순매출액, 판가, 유통실적', source:'영업', tab:'영업', page:'dept-sales', target:'dept-heroes', kpiIds:['SAL001','SAL002','SAL003','SAL004','SAL005'], area:'판매량·매출·판가·유통', unit:'전체, 양돈, 양계, 축우, 양어, 유통' },
     { label:'영업이익, SPREAD 단가, M/S', source:'기획', tab:'기획', page:'dept-planning', target:'dept-heroes', kpiIds:['FIN001','SAL010'], area:'손익 및 Spread', unit:'전체, 축종별, 유통' },
     { label:'물류비', source:'물류', tab:'물류', page:'dept-logistics', target:'dept-heroes', kpiIds:['LOG001'], area:'물류비 지출현황', unit:'전체, 이고, 배달, 용역, 좌대' },
     { label:'생산성·가동률, CAPA, 제조원가, SKU, 안전', source:'생산', tab:'생산', page:'dept-production', target:'production-reports', area:'공급전략·제조원가·생산성', unit:'공장, 공정, 축종별' },
-    { label:'고객불만, 반품 발생비율, 부적합 발생비율', source:'품질', tab:'품질', page:'dept-quality', target:'dept-heroes', kpiIds:['QLT001','QLT002','QLT003'], area:'품질 관리지표', unit:'전체, 인천, 창원, 전주' },
-    { label:'신용 기준미달 거래처, 대여금 한도, 회전일수', source:'신용', tab:'경영지원', page:'dept-management', target:'dept-heroes', kpiIds:['SAL013'], area:'신용관리 및 자금지원', unit:'전체, 축종별' },
+    { label:'신용 기준미달 거래처, 대여금 한도, 회전일수', source:'신용', tab:'영업', page:'dept-sales', target:'sales-credit-status-card', area:'신용관리 및 자금지원현황', unit:'전체, 축종별' },
     { label:'인당 판매량, 신규 대리점·거래처, 핵심 사양가, 활동지표', source:'영업', tab:'영업', page:'dept-sales', target:'dept-special', area:'영업 활동지표', unit:'전체, 영업조직, 축종별' }
   ];
   container.innerHTML = `
@@ -11465,13 +11474,13 @@ PAGES.relationship = function(container) {
     <div class="card" style="overflow:hidden;"><div style="overflow-x:auto;">
       <style>
         .focus-map-row{cursor:pointer}.focus-map-row:hover td{background:#EAF4FF!important}.focus-map-row:focus{outline:2px solid #2563EB;outline-offset:-2px}
-        .focus-kpi-view{border-collapse:collapse;table-layout:fixed;font-size:12px}.focus-kpi-view th,.focus-kpi-view td{border:1px solid #D7E2F0;padding:9px 8px;white-space:nowrap}.focus-kpi-view thead th{background:#173565;color:#fff;font-weight:700;text-align:center}.focus-kpi-view .focus-kpi-indicator{background:#D9EAF8;font-weight:700;text-align:center;white-space:normal;min-width:126px}.focus-kpi-view .focus-kpi-item{background:#F5F8FC;font-weight:600;min-width:130px}.focus-kpi-view .focus-kpi-meta{background:#FAFCFE}.focus-kpi-view .focus-kpi-value{background:#FFFBE1}.focus-kpi-view .focus-kpi-group-start td,.focus-kpi-view .focus-kpi-group-start th{border-top-width:3px;border-top-color:#84A9CC}.focus-kpi-view .focus-kpi-annual{background:#EAF6EE}
+        .focus-kpi-view{border-collapse:collapse;table-layout:fixed;font-size:12px}.focus-kpi-view th,.focus-kpi-view td{border:1px solid #D7E2F0;padding:9px 8px;white-space:nowrap}.focus-kpi-view thead th{background:#173565;color:#fff;font-weight:700;text-align:center}.focus-kpi-view .focus-kpi-col-indicator,.focus-kpi-view .focus-kpi-indicator{width:92px;min-width:92px;white-space:normal;line-height:1.35}.focus-kpi-view .focus-kpi-indicator{background:#D9EAF8;font-weight:700;text-align:center}.focus-kpi-view .focus-kpi-col-goal,.focus-kpi-view .focus-kpi-goal{width:82px;min-width:82px;white-space:normal;line-height:1.35}.focus-kpi-view .focus-kpi-col-item,.focus-kpi-view .focus-kpi-item{width:96px;min-width:96px;white-space:normal;line-height:1.35}.focus-kpi-view .focus-kpi-item{background:#F5F8FC;font-weight:600}.focus-kpi-view .focus-kpi-meta{background:#FAFCFE}.focus-kpi-view .focus-kpi-value{background:#FFFBE1}.focus-kpi-view .focus-kpi-group-start td,.focus-kpi-view .focus-kpi-group-start th{border-top-width:3px;border-top-color:#84A9CC}.focus-kpi-view .focus-kpi-annual{background:#EAF6EE}
       </style>
-      <table class="focus-kpi-view" style="min-width:3000px;">
-        <thead><tr><th>지표</th><th>부서</th><th>회의체</th><th>목표</th><th>항목</th><th class="text-right">'26년 목표</th><th class="text-right">'25년실적</th><th class="text-right">26년 누적</th><th class="text-right">목표대비</th>${EXEC_PLAN_PERIODS.map(item => `<th class="text-right">'26년 ${Number(item.slice(5))}월</th>`).join('')}</tr></thead>
+      <table class="focus-kpi-view" style="min-width:2640px;">
+        <thead><tr><th class="focus-kpi-col-indicator">지표</th><th>부서</th><th>회의체</th><th class="focus-kpi-col-goal">목표</th><th class="focus-kpi-col-item">항목</th><th class="text-right">'26년 목표</th><th class="text-right">'25년실적</th><th class="text-right">26년 누적</th><th class="text-right">목표대비</th>${EXEC_PLAN_PERIODS.map(item => `<th class="text-right">'26년 ${Number(item.slice(5))}월</th>`).join('')}</tr></thead>
         <tbody>${groupedRows.map(group => group.rows.map((row, index) => `<tr class="${index === 0 ? 'focus-kpi-group-start' : ''}">
           ${index === 0 ? `<th class="focus-kpi-indicator" rowspan="${group.rows.length}">${group.indicator}</th>` : ''}
-          <td class="focus-kpi-meta">${row.department}</td><td class="focus-kpi-meta">${row.committee}</td><td class="focus-kpi-meta">${row.goal || '-'}</td><th class="focus-kpi-item">${row.item}</th>
+          <td class="focus-kpi-meta">${row.department}</td><td class="focus-kpi-meta">${row.committee}</td><td class="focus-kpi-meta focus-kpi-goal">${row.goal || '-'}</td><th class="focus-kpi-item">${row.item}</th>
           <td class="text-right focus-kpi-annual">${cellDisplay(row, 'target26', row.annualTarget)}</td><td class="text-right focus-kpi-value">${cellDisplay(row, 'actual25', row.lyActual)}</td><td class="text-right focus-kpi-value font-semibold">${cellDisplay(row, 'cumulative26', row.cumulativeActual)}</td><td class="text-right focus-kpi-value">${(() => { const target = focusKpiStoredValue(row, 'target26', row.annualTarget); const actual = focusKpiStoredValue(row, 'cumulative26', row.cumulativeActual); return percentText(row.kpi ? row.cumulativeAchievement : (Number(target) ? Number(actual || 0) / Number(target) * 100 : null)); })()}</td>
           ${EXEC_PLAN_PERIODS.map(month => { const source = row.kpi ? getMonthlyValue(month, row.kpi.id)?.actual : null; return `<td class="text-right focus-kpi-value">${cellDisplay(row, month, source)}</td>`; }).join('')}
         </tr>`).join('')).join('')}</tbody>
