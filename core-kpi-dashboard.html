@@ -12271,7 +12271,7 @@ function prpDescriptor(kind=prpInputKind, factory=prpFactory) {
   if (kind === 'capacity') return {
     id:'capacity-'+factory, title:factory+'공장 공급능력', meta:['Process'],
     rows:PRP_PROCESSES[factory].map((name,i)=>({id:name, meta:[PRP_PROCESS_LABELS[name]||name], total:i===0, decimals:0})),
-    cols:[{id:'capa',label:'월간 Capa'}, ...prpMonths(1,12).map(prpMonthColumn), {id:'status',label:'12월 상태',text:true}]
+    cols:[{id:'capa',label:'월간 Capa'}, ...prpMonths(s.from,s.to).map(prpMonthColumn), {id:'status',label:s.to+'월 상태',text:true}]
   };
   if (kind === 'extra') return {
     id:'extra-'+factory, title:factory+'공장 추가 공급 가능량', meta:['구분'],
@@ -12345,7 +12345,7 @@ function prpHead(desc, editable=false) {
     if(c.id==='previous') return desc.id==='metrics'?(Number(prpYear())-1)+'년<br>실적':'전년<br>실적';
     if(c.id==='plan') return '사업<br>계획';
     if(desc.id.startsWith('capacity-') && c.month) return prpEscape(c.label)+'<br>생산톤수';
-    if(c.id==='status') return '12월 예상<br>가동률';
+    if(c.id==='status') return s.to+'월 예상<br>가동률';
     return prpEscape(c.label);
   };
   if (!grouped) return '<thead><tr>'+desc.meta.map(t=>'<th>'+prpEscape(t)+'</th>').join('')+desc.cols.map(c=>'<th>'+label(c)+'</th>').join('')+'</tr></thead>';
@@ -12377,7 +12377,7 @@ function prpTable(desc, editable=false) {
       if(editable) return `<td><input type="text" inputmode="${col.text?'text':'decimal'}" aria-label="${prpEscape(row.meta.join(' ')+' '+col.label)}" data-prp-row="${ri}" data-prp-col="${ci}" value="${prpEscape(value)}" onchange="prpEditCell(this)" onpaste="prpPasteCells(event)"></td>`;
       const capa=prpValue(desc.id,row.id,'capa');
       if(col.id==='status') {
-        const last=prpValue(desc.id,row.id,'m12');
+        const last=prpValue(desc.id,row.id,'m'+prpRecord().settings.to);
         const ratio=typeof capa==='number' && capa>0 && typeof last==='number' ? last/capa*100 : null;
         const over=ratio!==null && ratio>100;
         const status=value ?? (over?'초과':ratio===null?null:prpFormat(ratio,1)+'%');
@@ -12402,7 +12402,7 @@ function renderProductionReports() {
       return '<div class="prp-kpi"><div>'+name+'</div><strong>'+prpFormat(prpValue('metrics',row,'m'+s.actualMonth),decimals)+' <small>'+unit+'</small></strong><small>전년 '+prpFormat(prpValue('metrics',row,'previous'),decimals)+' · 목표 '+prpFormat(prpValue('metrics',row,'target'),decimals)+'</small></div>';
     }).join('');
     return `<div id="production-reports" class="prp">${prpStyle()}
-      <section id="prp-report-supply"><div class="prp-bar"><h2>공급전략 · ${prpYear()}년 1~12월</h2><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('supply',this)">표 PNG 다운로드</button><button class="btn-secondary" onclick="prpDownloadReportPng('supply-full',this)">전체 PNG</button><button class="btn-secondary" onclick="openProductionReportInput()">데이터 입력</button></div></div>
+      <section id="prp-report-supply"><div class="prp-bar"><h2>공급전략 · ${prpYear()}년 ${s.from}~${s.to}월</h2><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('supply',this)">표 PNG 다운로드</button><button class="btn-secondary" onclick="prpDownloadReportPng('supply-full',this)">전체 PNG</button><button class="btn-secondary" onclick="openProductionReportInput()">데이터 입력</button></div></div>
         ${prpFactoryTabs()}<div class="prp-supply">${prpTable(prpDescriptor('capacity'))}</div>
       </section>
       <section id="prp-report-cost"><div class="prp-bar"><h2>제조원가 실적 & 예측 자료</h2><span>단위: 원/kg</span><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('cost',this)">PNG 다운로드</button></div></div>${prpTable(prpDescriptor('cost'))}</section>
@@ -12576,6 +12576,8 @@ function renderProductionReportInput() {
         <label>양식<select id="prp-kind" onchange="prpChangeInput('kind',this.value)">${[['capacity','공급능력'],['cost','제조원가'],['metrics','생산성 관리지표']].map(([id,label])=>'<option value="'+id+'" '+(id===prpInputKind?'selected':'')+'>'+label+'</option>').join('')}</select></label>
         <label>공장<select id="prp-factory" ${['cost','metrics'].includes(prpInputKind)?'disabled':''} onchange="prpChangeInput('factory',this.value)">${PRP_FACTORIES.map(f=>'<option '+(f===prpFactory?'selected':'')+'>'+f+'</option>').join('')}</select></label>
         <label>실적 마감<select aria-label="실적 마감" onchange="prpSetting('actualMonth',this.value)">${prpOptions(prpMonths(0,12),s.actualMonth)}</select></label>
+        <label>공급계획 시작<select aria-label="공급계획 시작" onchange="prpSetting('from',this.value)">${prpOptions(prpMonths(),s.from)}</select></label>
+        <label>종료<select aria-label="공급계획 종료" onchange="prpSetting('to',this.value)">${prpOptions(prpMonths(),s.to)}</select></label>
       </div>
       <label class="prp-field-label" for="prp-paste">Excel 붙여넣기</label>
       <textarea id="prp-paste" spellcheck="false" aria-label="Excel 붙여넣기"></textarea>
