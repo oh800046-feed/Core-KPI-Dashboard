@@ -8321,7 +8321,7 @@ function buildDepartmentPage(deptName, container) {
     </div>
 
     ${deptName === '생산' ? renderProductionReports() : ''}
-    ${['물류','기획'].includes(deptName) ? '' : renderMeetingBlueprint(deptName)}
+    ${['물류','기획','생산'].includes(deptName) ? '' : renderMeetingBlueprint(deptName)}
     ${renderPlanningFinanceSnapshot(deptName)}
     ${renderPlanningWaterfallSection(deptName)}
 
@@ -12253,6 +12253,16 @@ function prpCommit(edit) {
   prpSaved = next;
 }
 function prpValue(table, row, col) { return prpRecord().cells?.[table]?.[row]?.[col] ?? null; }
+function prpCumulativeMonth() {
+  const settings = prpRecord().settings || {};
+  const month = Number(settings.cumulativeMonth ?? settings.actualMonth) || 1;
+  return Math.min(12, Math.max(1, month));
+}
+function prpMetricsActualMonth() {
+  const settings = prpRecord().settings || {};
+  const month = Number(settings.metricsActualMonth ?? settings.actualMonth) || 1;
+  return Math.min(12, Math.max(1, month));
+}
 function prpExtraOverviewValue(factory, row) {
   const overview = String(prpRecord().notes?.[factory]?.overview || '');
   const escaped = String(row).replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&');
@@ -12280,7 +12290,7 @@ function prpDescriptor(kind=prpInputKind, factory=prpFactory) {
   if (kind === 'cost') return {
     id:'cost',title:'제조원가 실적 & 예측 자료',meta:['분류','항목'],
     rows:[['축종별',['양계','양돈','축우','양어','합계']],['가공형태별',['가루','가공','후레이크','EP','합계']]].flatMap(([group,names])=>names.map(name=>({id:group+'-'+name,meta:[group,name],total:name==='합계',decimals:1}))),
-    cols:[{id:'previous',label:'전년 실적'},{id:'plan',label:'사업계획'},...prpMonths(1,s.actualMonth).map(prpMonthColumn),{id:'cumulative',label:'누적'},...prpMonths(s.actualMonth+1,12).map(prpMonthColumn),{id:'forecast',label:'예측'}]
+    cols:[{id:'previous',label:'전년 실적'},{id:'plan',label:'사업계획'},...prpMonths(1,s.actualMonth).map(prpMonthColumn),{id:'cumulative',label:'1~'+prpCumulativeMonth()+'월 누적'},...prpMonths(s.actualMonth+1,12).map(prpMonthColumn),{id:'forecast',label:'예측'}]
   };
   return {
     id:'metrics',title:'생산성 관리지표',meta:['공장','구분','관리지표','단위'],
@@ -12339,6 +12349,7 @@ function prpStyle() { return `<style>
   </style>`; }
 function prpHead(desc, editable=false) {
   const s = prpRecord().settings;
+  const actualMonth = desc.id === 'metrics' ? prpMetricsActualMonth() : s.actualMonth;
   const grouped = ['cost','metrics'].includes(desc.id) && !editable;
   const label = c => {
     if(editable) return prpEscape(c.label);
@@ -12351,15 +12362,16 @@ function prpHead(desc, editable=false) {
   if (!grouped) return '<thead><tr>'+desc.meta.map(t=>'<th>'+prpEscape(t)+'</th>').join('')+desc.cols.map(c=>'<th>'+label(c)+'</th>').join('')+'</tr></thead>';
   let first = desc.meta.map(t=>'<th rowspan="2">'+t+'</th>').join('');
   first += desc.cols.slice(0,2).map(c=>'<th rowspan="2">'+label(c)+'</th>').join('');
-  if (s.actualMonth) first += '<th colspan="'+s.actualMonth+'">실적</th>';
-  if (desc.id==='cost') first += '<th rowspan="2">누적</th>';
-  if (s.actualMonth<12) first += '<th colspan="'+(12-s.actualMonth)+'">실행계획</th>';
+  if (actualMonth) first += '<th colspan="'+actualMonth+'">실적</th>';
+  if (desc.id==='cost') first += '<th rowspan="2">1~'+prpCumulativeMonth()+'월<br>누적</th>';
+  if (actualMonth<12) first += '<th colspan="'+(12-actualMonth)+'">실행계획</th>';
   first += '<th rowspan="2">'+(desc.id==='cost'?'예측':'연간 평균')+'</th>';
   return '<thead><tr>'+first+'</tr><tr>'+prpMonths().map(m=>'<th>'+prpMonthColumn(m).label+'</th>').join('')+'</tr></thead>';
 }
 function prpTable(desc, editable=false) {
   const capacity = desc.id.startsWith('capacity-');
   const extra = desc.id.startsWith('extra-');
+  const actualMonth = desc.id === 'metrics' ? prpMetricsActualMonth() : prpRecord().settings.actualMonth;
   const metaWidths = capacity ? [155] : extra ? [175] : desc.id==='cost' ? [74,80] : [65,72,104,72];
   const minWidth = metaWidths.reduce((a,b)=>a+b,0)+desc.cols.length*(extra?110:capacity?60:editable?90:65);
   const cols = metaWidths.map(w=>'<col style="width:'+w+'px">').join('')+desc.cols.map(()=>'<col>').join('');
@@ -12383,7 +12395,7 @@ function prpTable(desc, editable=false) {
         const status=value ?? (over?'초과':ratio===null?null:prpFormat(ratio,1)+'%');
         return '<td class="prp-status '+(over?'prp-over':value==='관리'?'prp-manage':'')+'">'+prpFormat(status)+(ratio===null||(!value&&!over)?'':'<small>'+prpFormat(ratio,1)+'%</small>')+'</td>';
       }
-      const cl = capacity && col.month && typeof capa==='number' && typeof value==='number' && value>capa ? 'prp-over' : col.id==='capa'?'prp-capa':col.month>prpRecord().settings.actualMonth?'prp-plan':['annual','forecast'].includes(col.id)?'prp-annual':'';
+      const cl = capacity && col.month && typeof capa==='number' && typeof value==='number' && value>capa ? 'prp-over' : col.id==='capa'?'prp-capa':col.month>actualMonth?'prp-plan':['annual','forecast'].includes(col.id)?'prp-annual':'';
       return '<td class="'+cl+'">'+prpFormat(value,row.decimals)+'</td>';
     }).join('');
     return '<tr class="'+(row.total?'prp-total':'')+'">'+meta+cells+'</tr>';
@@ -12397,16 +12409,17 @@ function prpSelectFactory(factory) { prpFactory=factory; document.getElementById
 function renderProductionReports() {
   try {
     const record=prpRecord(), s=record.settings, notes=record.notes[prpFactory]||{};
+    const metricsActualMonth = prpMetricsActualMonth();
     const cards=PRP_METRICS.map(([category,name,unit,decimals])=>{
       const row=prpFactory+'-'+name;
-      return '<div class="prp-kpi"><div>'+name+'</div><strong>'+prpFormat(prpValue('metrics',row,'m'+s.actualMonth),decimals)+' <small>'+unit+'</small></strong><small>전년 '+prpFormat(prpValue('metrics',row,'previous'),decimals)+' · 목표 '+prpFormat(prpValue('metrics',row,'target'),decimals)+'</small></div>';
+      return '<div class="prp-kpi"><div>'+name+'</div><strong>'+prpFormat(prpValue('metrics',row,'m'+metricsActualMonth),decimals)+' <small>'+unit+'</small></strong><small>전년 '+prpFormat(prpValue('metrics',row,'previous'),decimals)+' · 목표 '+prpFormat(prpValue('metrics',row,'target'),decimals)+'</small></div>';
     }).join('');
     return `<div id="production-reports" class="prp">${prpStyle()}
       <section id="prp-report-supply"><div class="prp-bar"><h2>공급전략 · ${prpYear()}년 ${s.from}~${s.to}월</h2><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('supply',this)">표 PNG 다운로드</button><button class="btn-secondary" onclick="prpDownloadReportPng('supply-full',this)">전체 PNG</button><button class="btn-secondary" onclick="openProductionReportInput()">데이터 입력</button></div></div>
         ${prpFactoryTabs()}<div class="prp-supply">${prpTable(prpDescriptor('capacity'))}</div>
       </section>
       <section id="prp-report-cost"><div class="prp-bar"><h2>제조원가 실적 & 예측 자료</h2><span>단위: 원/kg</span><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('cost',this)">PNG 다운로드</button></div></div>${prpTable(prpDescriptor('cost'))}</section>
-      <section id="prp-report-metrics"><div class="prp-bar"><h2>생산성 관리지표 · ${prpFactory}공장 ${s.actualMonth?s.actualMonth+'월 실적':'실적 미마감'}</h2><span>${prpYear()}년</span><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('metrics',this)">PNG 다운로드</button></div></div><div class="prp-cards">${cards}</div>${prpTable(prpDescriptor('metrics'))}</section>
+      <section id="prp-report-metrics"><div class="prp-bar"><h2>생산성 관리지표 · ${prpFactory}공장 ${metricsActualMonth+'월 실적'}</h2><span>${prpYear()}년</span><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('metrics',this)">PNG 다운로드</button></div></div><div class="prp-cards">${cards}</div>${prpTable(prpDescriptor('metrics'))}</section>
     </div>`;
   } catch(err) { return '<div id="production-reports" class="prp"><p role="alert">'+prpEscape('생산 양식을 불러오지 못했습니다: '+err.message)+'</p></div>'; }
 }
@@ -12575,7 +12588,8 @@ function renderProductionReportInput() {
       <div class="prp-tools">
         <label>양식<select id="prp-kind" onchange="prpChangeInput('kind',this.value)">${[['capacity','공급능력'],['cost','제조원가'],['metrics','생산성 관리지표']].map(([id,label])=>'<option value="'+id+'" '+(id===prpInputKind?'selected':'')+'>'+label+'</option>').join('')}</select></label>
         <label>공장<select id="prp-factory" ${['cost','metrics'].includes(prpInputKind)?'disabled':''} onchange="prpChangeInput('factory',this.value)">${PRP_FACTORIES.map(f=>'<option '+(f===prpFactory?'selected':'')+'>'+f+'</option>').join('')}</select></label>
-        <label>실적 마감<select aria-label="실적 마감" onchange="prpSetting('actualMonth',this.value)">${prpOptions(prpMonths(0,12),s.actualMonth)}</select></label>
+        ${prpInputKind === 'metrics' ? '<label>생산성 실적 기준<select aria-label="생산성 실적 기준" onchange="prpSetting(\'metricsActualMonth\',this.value)">'+prpOptions(prpMonths(),prpMetricsActualMonth())+'</select></label>' : '<label>실적 마감<select aria-label="실적 마감" onchange="prpSetting(\'actualMonth\',this.value)">'+prpOptions(prpMonths(0,12),s.actualMonth)+'</select></label>'}
+        ${prpInputKind === 'cost' ? '<label>누적 기준<select aria-label="누적 기준" onchange="prpSetting(\'cumulativeMonth\',this.value)">'+prpOptions(prpMonths(),prpCumulativeMonth())+'</select></label>' : ''}
         <label>공급계획 시작<select aria-label="공급계획 시작" onchange="prpSetting('from',this.value)">${prpOptions(prpMonths(),s.from)}</select></label>
         <label>종료<select aria-label="공급계획 종료" onchange="prpSetting('to',this.value)">${prpOptions(prpMonths(),s.to)}</select></label>
       </div>
@@ -12617,9 +12631,9 @@ function prpSetting(field,value) {
 }
 function prpRestoreSettings() {
   const s=prpRecord().settings;
-  [['실적 마감','actualMonth'],['공급계획 시작','from'],['공급계획 종료','to']].forEach(([label,field])=>{
+  [['실적 마감','actualMonth'],['생산성 실적 기준','metricsActualMonth'],['누적 기준','cumulativeMonth'],['공급계획 시작','from'],['공급계획 종료','to']].forEach(([label,field])=>{
     const input=document.querySelector('#production-report-input select[aria-label="'+label+'"]');
-    if(input) input.value=s[field];
+    if(input) input.value=field === 'cumulativeMonth' ? prpCumulativeMonth() : field === 'metricsActualMonth' ? prpMetricsActualMonth() : s[field];
   });
 }
 function prpSaveNote(field,input) {
