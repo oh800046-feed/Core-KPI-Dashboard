@@ -554,18 +554,10 @@
         기획
       </div>
 
-      <div class="nav-section">분석 & 인사이트</div>
-      <div class="nav-item" data-page="cross" onclick="navigate('cross')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-        Cross-functional Analysis
-      </div>
+      <div class="nav-section">중점관리지표</div>
       <div class="nav-item" data-page="relationship" onclick="navigate('relationship')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M12 8v3M9.5 15l-2 2M14.5 15l2 2"/></svg>
-        KPI Relationship Map
-      </div>
-      <div class="nav-item" data-page="insights" onclick="navigate('insights')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>
-        Insight Engine
+        중점관리지표 매핑
       </div>
 
       <div class="nav-section">기타</div>
@@ -3171,7 +3163,6 @@ PAGES.overview = function(container) {
       <div class="flex gap-2 no-print">
         <button class="btn-secondary" onclick="navigate('input')">데이터 입력</button>
         <button class="btn-secondary" onclick="navigate('reports')">월간 보고서</button>
-        <button class="btn-primary" onclick="navigate('insights')">전체 인사이트 →</button>
       </div>
     </div>
 
@@ -3497,6 +3488,7 @@ PAGES.input = function(container) {
         <button class="tab-btn" data-tab="upload" onclick="switchInputTab('upload')">📤 파일 업로드</button>
         <button class="tab-btn" data-tab="template" onclick="switchInputTab('template')">📄 템플릿 다운로드</button>
         <button class="tab-btn" data-tab="table" onclick="switchInputTab('table')">📋 부서별 표 입력</button>
+        <button class="tab-btn" data-tab="focus" onclick="switchInputTab('focus')">중점관리지표 입력</button>
         <button class="tab-btn" data-tab="commodity" onclick="switchInputTab('commodity')">구매 원료</button>
         <button class="tab-btn" data-tab="history" onclick="switchInputTab('history')">📚 입력 이력</button>
       </div>
@@ -3513,6 +3505,7 @@ function switchInputTab(tab) {
   else if (tab === 'upload') renderUploadTab(content);
   else if (tab === 'template') renderTemplateTab(content);
   else if (tab === 'table') renderTableOverrideInput(content);
+  else if (tab === 'focus') renderFocusKpiInput(content);
   else if (tab === 'commodity') renderProcurementCommodityInput(content);
   else if (tab === 'history') renderHistoryTab(content);
 }
@@ -8316,7 +8309,6 @@ function buildDepartmentPage(deptName, container) {
       <div class="flex gap-2 no-print">
         ${deptName === '기획' ? '<button class="btn-secondary" onclick="openPlanningImageDownloader()">그래프 PNG</button>' : ''}
         <button class="btn-secondary" onclick="${deptName === '생산' ? 'openProductionReportInput()' : deptName === '물류' ? "openDepartmentTableInput('물류')" : "navigate('input')"}">데이터 입력</button>
-        <button class="btn-primary" onclick="navigate('cross')">교차 분석 →</button>
       </div>
     </div>
 
@@ -11204,58 +11196,244 @@ function renderCustomCorrelation() {
 }
 
 // ============================================================================
-// PAGE: KPI RELATIONSHIP MAP (Network)
+// PAGE: FOCUS KPI MAPPING
 // ============================================================================
-PAGES.relationship = function(container) {
-  container.innerHTML = `
-    <div class="mb-5">
-      <h1 class="text-2xl font-bold">KPI Relationship Map</h1>
-      <p class="text-sm mt-1" style="color: var(--color-text-muted);">KPI 간 영향 관계 네트워크 · 노드 크기는 중요도, 색상은 부서</p>
-    </div>
-    <div class="card p-4">
-      <div id="relationship-network" style="height: 600px;"></div>
-    </div>
-  `;
+function makeFocusRows(indicator, department, committee, goal, upgrade, items, dashboardMap = {}) {
+  return items.map(item => ({ indicator, department, committee, goal, upgrade, item, kpiId: dashboardMap[item] || null }));
+}
 
-  const t = chartTheme();
-  const colorMap = {'영업':'#1E40AF','물류':'#06B6D4','생산':'#10B981','구매':'#F59E0B','품질':'#EF4444','경영지원':'#8B5CF6'};
-  const nodes = KPI_MASTER.map(k => ({
-    id: k.id,
-    name: k.name,
-    symbolSize: 10 + k.weight * 2,
-    category: k.category,
-    itemStyle: { color: colorMap[k.category] }
-  }));
-  const links = [];
-  KPI_MASTER.forEach(k => {
-    if (k.linked) k.linked.forEach(l => {
-      if (KPI_MASTER.find(x => x.id === l)) {
-        links.push({ source: k.id, target: l });
-      }
+const FOCUS_KPI_REGISTRY = [
+  ...makeFocusRows('원재료비', '구매', '전략구매', '사업계획', '', ['전체', '외자', '내자']),
+  ...makeFocusRows('축종별 예상 제품 원재료비', '연구', '전략구매', '사업계획', '', ['전체', '양돈', '양계', '축우', '양어']),
+  ...makeFocusRows('판매량', '영업', '영업본부장', '사업계획', '판매량 예측 정확도', ['전체', '양돈', '양계', '축우', '양어'], { 전체:'SAL001', 양돈:'SAL002', 양계:'SAL003', 축우:'SAL004', 양어:'SAL005' }),
+  ...makeFocusRows('순매출액', '영업', '경영', '사업계획', '', ['전체', '양돈', '양계', '축우', '양어', '유통'], { 전체:'SAL006' }),
+  ...makeFocusRows('영업이익', '기획', '경영', '사업계획', '', ['전체', '양돈', '양계', '축우', '양어', '유통'], { 전체:'FIN001' }),
+  ...makeFocusRows('SPREAD 단가', '기획', '경영', '사업계획', '', ['전체', '양돈', '양계', '축우', '양어'], { 전체:'SAL010' }),
+  ...makeFocusRows('판가', '영업', '경영', '사업계획', '', ['전체', '양돈', '양계', '축우', '양어'], { 전체:'SAL007' }),
+  ...makeFocusRows('유통실적', '영업', '경영', '사업계획', '', ['유통두수', '매출액']),
+  ...makeFocusRows('물류비 (이고, 배달, 용역, 좌대 포함)', '물류', '물류', '사업계획', '', ['전체', '이고', '배달', '용역', '좌대']),
+  ...makeFocusRows('공장별/공정별 생산성 및 가동율', '생산', '공장장', '사업계획 생산 대비', '', ['생산본부 생산성 전체', '인천 생산성 전체', '인천 펠렛1', '인천 펠렛2', '인천 펠렛3', '인천 펠렛4', '인천 EP1', '인천 EP2', '인천 EP3', '창원 전체', '창원 펠렛1', '창원 펠렛2', '전주 전체', '전주 펠렛1', '전주 펠렛2']),
+  ...makeFocusRows('공장별/공정별 CAPA', '생산', '공장장', '사업계획 생산 대비', 'CAPA TF 수치 반영 수정', ['전체 CAPA', '인천 CAPA', '인천 입고', '인천 분쇄', '인천 배합', '인천 펠렛', '인천 후레이크', '인천 EP', '인천 포장', '인천 저장', '창원 CAPA', '창원 입고', '창원 분쇄', '창원 배합', '창원 펠렛', '창원 후레이크', '창원 포장', '창원 저장', '전주 CAPA', '전주 입고', '전주 분쇄', '전주 배합', '전주 펠렛', '전주 후레이크', '전주 포장', '전주 저장']),
+  ...makeFocusRows('제조원가', '생산', '공장장', '사업계획', '', ['전체 제조원가', '인천 전체', '인천 양돈', '인천 양계', '인천 축우', '인천 양어', '창원 전체', '창원 양돈', '창원 양계', '창원 축우', '전주 전체', '전주 양돈', '전주 양계', '전주 축우'], { '전체 제조원가':'PRD002' }),
+  ...makeFocusRows('SKU', '-', '-', '전년', '마케팅팀 설립 후 기준 재정립', ['전체 SKU', '인천 전체', '인천 양계', '인천 양돈', '인천 축우', '창원 전체', '창원 양계', '창원 양돈', '창원 축우', '전주 전체', '전주 양계', '전주 양돈', '전주 축우']),
+  ...makeFocusRows('아차사고 발굴 건수', '생산', '공장장', '신규 기준', '', ['전체', '인천', '창원', '전주']),
+  ...makeFocusRows('안전행동 관찰 건수', '생산', '공장장', '신규 기준', '', ['전체', '인천', '창원', '전주']),
+  ...makeFocusRows('안전 개선활동 건수', '생산', '공장장', '신규 기준', '', ['전체', '인천', '창원', '전주']),
+  ...makeFocusRows('무재해 달성일수', '생산', '공장장', '신규 기준', '', ['전체', '인천', '창원', '전주']),
+  ...makeFocusRows('고객불만', '품질', '공장장', '전년발생 건수 이하', 'VOC 기준 제외 후 품질관리팀 정리 기준으로 교체', ['전체', '인천', '창원', '전주'], { 전체:'QLT001' }),
+  ...makeFocusRows('반품 발생비율', '품질', '공장장', '전년대비 10% 절감', '', ['전체', '인천', '창원', '전주'], { 전체:'QLT002' }),
+  ...makeFocusRows('부적합 발생비율', '품질', '공장장', '전년대비 10% 절감', '', ['전체', '인천', '창원', '전주'], { 전체:'QLT003' }),
+  ...makeFocusRows('신용 기준미달 거래처 개선 실적', '신용', '신용', '100%', '', ['기준미달거래처 개선 건수']),
+  ...makeFocusRows('대여금 한도', '신용', '경영', '526억', '', ['남은 한도']),
+  ...makeFocusRows('회전일수', '신용', '신용', '180일', '', ['전체', '양돈', '양계', '축우', '양어'], { 전체:'SAL013' }),
+  ...makeFocusRows('인당 판매량(톤)', '영업', '영업본부장', '기준수립', '', ['전체', '양축1팀', '양돈', '양계', '축우', '양어']),
+  ...makeFocusRows('M/S', '영업', '경영', '사업계획대비 목표', '', ['전체', '양돈', '양계', '축우', '양어']),
+  ...makeFocusRows('신규 대리점수', '영업', '영업본부장', '매년 신규 영입 대리점 수', '', ['전체', '양돈', '양계', '축우', '양어']),
+  ...makeFocusRows('핵심 사양가수', '영업', '영업본부장', '신규', '핵심 사양가 인증 기준 마련', ['전체', '양돈', '양계', '축우', '양어']),
+  ...makeFocusRows('신규 거래처 (사양가)', '영업', '영업본부장', '매년 신규 영입 거래처 수', '', ['전체', '양돈', '양계', '축우', '양어'], { 전체:'SAL011' }),
+  ...makeFocusRows('회의 진행 횟수', '영업', '영업본부장', '신규', '', ['전체', '양돈', '양계', '축우', '양어']),
+  ...makeFocusRows('실증자료 제출 횟수', '영업', '영업본부장', '신규', '', ['전체', '양돈', '양계', '축우', '양어']),
+  ...makeFocusRows('인당 판매비(백만원)', '영업', '영업본부장', '전년', '', ['전체'])
+];
+
+let focusKpiMappingFilter = 'all';
+function setFocusKpiMappingFilter(value) {
+  focusKpiMappingFilter = value;
+  navigate('relationship');
+}
+
+function focusKpiRowKey(row) {
+  return [row.indicator, row.department, row.committee, row.item].join('|');
+}
+
+function focusKpiOverride(row, column) {
+  return (STORE.tableOverrides || {})[tableOverrideKey('focus-kpi', focusKpiRowKey(row), column)]?.value;
+}
+
+function focusKpiStoredValue(row, column, sourceValue) {
+  const manual = focusKpiOverride(row, column);
+  return manual === undefined || manual === null ? sourceValue : manual;
+}
+
+function saveFocusKpiCell(input) {
+  const value = parseTableOverrideNumber(input.value);
+  const tableId = 'focus-kpi';
+  const rowKey = input.dataset.rowkey;
+  const colKey = input.dataset.colkey;
+  const key = tableOverrideKey(tableId, rowKey, colKey);
+  if (value === null) {
+    delete STORE.tableOverrides[key];
+  } else {
+    STORE.tableOverrides[key] = {
+      tableId, rowKey, colKey, value,
+      inputMethod: 'ManualFocusKpi',
+      inputBy: STORE.currentUser?.email || 'Company Network User',
+      inputAt: new Date().toISOString()
+    };
+  }
+  persistTableOverrides();
+  navigate('relationship');
+}
+
+function focusKpiSourceValue(row, column) {
+  const kpi = row.kpiId ? getKPI(row.kpiId) : null;
+  if (!kpi) return null;
+  const periods = activePeriods();
+  const current = STORE.currentPeriod;
+  const numeric = value => Number.isFinite(Number(value)) ? Number(value) : null;
+  const monthly = month => numeric(getMonthlyValue(month, kpi.id)?.actual);
+  if (EXEC_PLAN_PERIODS.includes(column)) return monthly(column);
+  if (column === 'actual25') return numeric(getMonthlyValue(current, kpi.id)?.lyActual);
+  const additive = !['%', '원/kg', 'index', '일'].includes(kpi.unit);
+  if (!additive) return null;
+  const sum = (field, selectedPeriods) => selectedPeriods.reduce((total, month) => total + (Number(getMonthlyValue(month, kpi.id)?.[field]) || 0), 0);
+  if (column === 'target26') return sum('target', periods);
+  if (column === 'cumulative26') return sum('actual', periods.filter(month => month <= current));
+  return null;
+}
+
+function saveFocusKpiInputCell(input) {
+  const value = parseTableOverrideNumber(input.value);
+  const tableId = 'focus-kpi';
+  const rowKey = input.dataset.rowkey;
+  const colKey = input.dataset.colkey;
+  const key = tableOverrideKey(tableId, rowKey, colKey);
+  if (value === null) delete STORE.tableOverrides[key];
+  else STORE.tableOverrides[key] = { tableId, rowKey, colKey, value, inputMethod:'ManualFocusKpi', inputBy:STORE.currentUser?.email || 'Company Network User', inputAt:new Date().toISOString() };
+  persistTableOverrides();
+  const message = document.getElementById('focus-kpi-input-message');
+  if (message) message.textContent = '저장했습니다.';
+}
+
+function focusKpiPasteColumn(label) {
+  const text = String(label || '').replace(/[\s']/g, '');
+  if (text === '26년목표') return 'target26';
+  if (text === '25년실적') return 'actual25';
+  if (text === '26년누적') return 'cumulative26';
+  const match = text.match(/^26년(\d{1,2})월$/);
+  return match ? `2026-${match[1].padStart(2, '0')}` : null;
+}
+
+function applyFocusKpiPaste() {
+  const area = document.getElementById('focus-kpi-paste');
+  const rows = String(area?.value || '').trim().split(/\r?\n/).filter(Boolean).map(line => line.split('\t'));
+  if (rows.length < 2) { toast('헤더와 데이터 행을 함께 붙여넣어 주세요.', 'error'); return; }
+  const header = rows.shift();
+  const valueColumns = header.map(focusKpiPasteColumn);
+  if (header.slice(0, 5).join('|').replace(/\s/g, '') !== '지표|부서|회의체|목표|항목') { toast('첫 다섯 열은 지표·부서·회의체·목표·항목 순서여야 합니다.', 'error'); return; }
+  if (!valueColumns.some(Boolean)) { toast('26년 목표 또는 월별 실적 열을 찾지 못했습니다.', 'error'); return; }
+  const registry = new Map(FOCUS_KPI_REGISTRY.map(row => [focusKpiRowKey(row), row]));
+  const carried = ['', '', '', ''];
+  let applied = 0;
+  rows.forEach(cells => {
+    for (let index = 0; index < 4; index += 1) { if (String(cells[index] || '').trim()) carried[index] = String(cells[index]).trim(); else cells[index] = carried[index]; }
+    const row = registry.get([cells[0], cells[1], cells[2], cells[4]].map(value => String(value || '').trim()).join('|'));
+    if (!row) return;
+    valueColumns.forEach((column, index) => {
+      if (!column) return;
+      const value = parseTableOverrideNumber(cells[index]);
+      if (value === null) return;
+      const source = focusKpiSourceValue(row, column);
+      if (row.kpiId && column !== 'target26' && source !== null) return;
+      STORE.tableOverrides[tableOverrideKey('focus-kpi', focusKpiRowKey(row), column)] = { tableId:'focus-kpi', rowKey:focusKpiRowKey(row), colKey:column, value, inputMethod:'ManualFocusKpiPaste', inputBy:STORE.currentUser?.email || 'Company Network User', inputAt:new Date().toISOString() };
+      applied += 1;
     });
   });
+  persistTableOverrides();
+  toast(`중점관리지표 ${applied}개 값을 저장했습니다.`);
+  renderFocusKpiInput(document.getElementById('input-tab-content'));
+}
 
-  makeChart(document.getElementById('relationship-network'), {
-    tooltip: { 
-      backgroundColor: t.tooltipBg, borderColor: t.tooltipBorder, textStyle: t.textStyle,
-      formatter: p => p.data.name ? `<b>${p.data.name}</b><br>${p.data.category}` : ''
-    },
-    legend: { 
-      data: Object.keys(colorMap).map(c => ({ name: c, icon: 'circle' })),
-      bottom: 0, textStyle: t.textStyle
-    },
-    series: [{
-      type: 'graph',
-      layout: 'force',
-      categories: Object.keys(colorMap).map(c => ({ name: c, itemStyle: { color: colorMap[c] } })),
-      data: nodes.map(n => ({ ...n, category: Object.keys(colorMap).indexOf(n.category) })),
-      links: links.map(l => ({ ...l, lineStyle: { color: '#94A3B8', opacity: 0.4, width: 1, curveness: 0.15 } })),
-      roam: true,
-      label: { show: true, position: 'right', color: t.textStyle.color, fontSize: 10 },
-      force: { repulsion: 200, edgeLength: [60,120], gravity: 0.1 },
-      emphasis: { focus: 'adjacency', label: { fontSize: 12, fontWeight: 'bold' } }
-    }]
+function renderFocusKpiInput(content) {
+  const columns = ['target26', 'actual25', 'cumulative26', ...EXEC_PLAN_PERIODS];
+  const labels = { target26:"'26년 목표", actual25:"'25년실적", cumulative26:'26년 누적' };
+  const numberInput = (row, column) => {
+    const source = focusKpiSourceValue(row, column);
+    const value = focusKpiStoredValue(row, column, source);
+    const locked = column !== 'target26' && source !== null;
+    return `<input type="number" class="input-field text-xs py-1 text-right" value="${value ?? ''}" ${locked ? 'disabled title="대시보드 연동값"' : ''} data-rowkey="${focusKpiRowKey(row)}" data-colkey="${column}" onchange="saveFocusKpiInputCell(this)">`;
+  };
+  content.innerHTML = `
+    <section class="prp prp-editor"><div class="prp-bar"><h2>중점관리지표 입력</h2><div class="prp-tools"><button class="btn-secondary" onclick="navigate('relationship')">열람 화면 보기</button></div></div>
+      <label class="prp-field-label" for="focus-kpi-paste">Excel 붙여넣기</label><textarea id="focus-kpi-paste" spellcheck="false" aria-label="중점관리지표 Excel 붙여넣기"></textarea>
+      <div class="prp-tools"><button class="btn-primary" onclick="applyFocusKpiPaste()">붙여넣기 반영</button><button class="btn-secondary" onclick="document.getElementById('focus-kpi-paste').value=''">입력창 비우기</button></div>
+      <div id="focus-kpi-input-message" class="prp-message" role="status"></div>
+      <div class="prp-scroll"><table class="prp-edit-table" style="min-width:3000px;"><thead><tr><th>지표</th><th>부서</th><th>회의체</th><th>목표</th><th>항목</th><th>'26년 목표</th><th>'25년실적</th><th>26년 누적</th><th>목표대비</th>${EXEC_PLAN_PERIODS.map(month => `<th>'26년 ${Number(month.slice(5))}월</th>`).join('')}</tr></thead>
+      <tbody>${FOCUS_KPI_REGISTRY.map(row => { const target = focusKpiStoredValue(row, 'target26', focusKpiSourceValue(row, 'target26')); const cumulative = focusKpiStoredValue(row, 'cumulative26', focusKpiSourceValue(row, 'cumulative26')); const ratio = Number(target) ? Number(cumulative || 0) / Number(target) * 100 : null; return `<tr><th class="prp-meta">${row.indicator}</th><td>${row.department}</td><td>${row.committee}</td><td>${row.goal || '-'}</td><th class="prp-meta">${row.item}</th><td>${numberInput(row, 'target26')}</td><td>${numberInput(row, 'actual25')}</td><td>${numberInput(row, 'cumulative26')}</td><td class="text-right">${ratio === null ? '-' : formatNumber(ratio, 1) + '%'}</td>${EXEC_PLAN_PERIODS.map(column => `<td>${numberInput(row, column)}</td>`).join('')}</tr>`; }).join('')}</tbody>
+      </table></div><div class="text-xs mt-2" style="color:var(--color-text-muted);">회색 입력칸은 대시보드 연동값입니다. 흰 입력칸은 수기로 수정할 수 있으며, 저장 후 온라인 수기입력 저장소에 동기화됩니다.</div>
+    </section>`;
+}
+
+PAGES.relationship = function(container) {
+  const period = STORE.currentPeriod;
+  const periods = activePeriods();
+  const cumulativePeriods = periods.filter(item => item <= period);
+  const departments = [...new Set(FOCUS_KPI_REGISTRY.map(row => row.department))];
+  const isAdditive = kpi => kpi && !['%', '원/kg', 'index', '일'].includes(kpi.unit);
+  const getRows = (id, sourcePeriods) => sourcePeriods.map(item => getMonthlyValue(item, id)).filter(Boolean);
+  const summary = row => {
+    const kpi = row.kpiId ? getKPI(row.kpiId) : null;
+    const current = kpi ? getMonthlyValue(period, kpi.id) : null;
+    const toDate = kpi ? getRows(kpi.id, cumulativePeriods) : [];
+    const annual = kpi ? getRows(kpi.id, periods) : [];
+    const canSum = isAdditive(kpi);
+    const sum = (rows, field) => rows.reduce((total, item) => total + (Number(item[field]) || 0), 0);
+    const cumulativeTarget = canSum && toDate.length ? sum(toDate, 'target') : null;
+    const cumulativeActual = canSum && toDate.length ? sum(toDate, 'actual') : null;
+    return {
+      ...row, kpi, current,
+      annualTarget: canSum && annual.length ? sum(annual, 'target') : null,
+      lyActual: current?.lyActual ?? null,
+      cumulativeActual,
+      cumulativeAchievement: canSum && cumulativeTarget ? cumulativeActual / cumulativeTarget * 100 : null
+    };
+  };
+  const allRows = FOCUS_KPI_REGISTRY.map(summary);
+  const filteredRows = allRows.filter(row => {
+    if (focusKpiMappingFilter === 'connected') return Boolean(row.kpi);
+    if (focusKpiMappingFilter === 'pending') return !row.kpi;
+    return focusKpiMappingFilter === 'all' || row.department === focusKpiMappingFilter;
   });
+  const connected = allRows.filter(row => row.kpi).length;
+  const valueText = (value, kpi) => value === null || value === undefined || !Number.isFinite(Number(value)) ? '-' : formatNumber(value, kpiDisplayDecimals(kpi, value));
+  const percentText = value => value === null || value === undefined || !Number.isFinite(Number(value)) ? '-' : `${formatNumber(value, 1)}%`;
+  const cellDisplay = (row, column, sourceValue, kpi = row.kpi) => valueText(focusKpiStoredValue(row, column, sourceValue), kpi);
+  const badge = row => {
+    if (!row.kpi) return '<span class="badge" style="background:#F1F5F9;color:#64748B;">입력 대기</span>';
+    const color = row.current ? statusColor(row.current.status) : '#64748B';
+    const label = row.current ? row.current.status : '수치 대기';
+    return `<span class="badge" style="background:${color}18;color:${color};">${label}</span>`;
+  };
+
+  container.innerHTML = `
+    <div class="mb-5 flex items-center justify-between gap-3" style="flex-wrap:wrap;">
+      <div><h1 class="text-2xl font-bold">중점관리지표 현황</h1><p class="text-sm mt-1" style="color:var(--color-text-muted);">${period.replace('-', '년 ')}월 기준 · 지표와 항목 단위로 대시보드 데이터 연결 상태를 관리합니다.</p></div>
+      <div class="flex gap-2"><button class="btn-secondary" onclick="navigate('input');switchInputTab('focus')">데이터 입력</button><select class="input" style="width:180px;" onchange="setFocusKpiMappingFilter(this.value)">
+          <option value="all" ${focusKpiMappingFilter === 'all' ? 'selected' : ''}>전체 부서</option>
+          ${departments.map(dept => `<option value="${dept}" ${focusKpiMappingFilter === dept ? 'selected' : ''}>${dept}</option>`).join('')}
+          <option value="connected" ${focusKpiMappingFilter === 'connected' ? 'selected' : ''}>대시보드 연결됨</option>
+          <option value="pending" ${focusKpiMappingFilter === 'pending' ? 'selected' : ''}>입력 대기</option>
+        </select></div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+      <div class="card p-4"><div class="text-xs" style="color:var(--color-text-muted);">관리 항목</div><div class="text-2xl font-bold mt-1">${allRows.length}개</div></div>
+      <div class="card p-4"><div class="text-xs" style="color:var(--color-text-muted);">대시보드 연결</div><div class="text-2xl font-bold mt-1">${connected}개</div></div>
+      <div class="card p-4"><div class="text-xs" style="color:var(--color-text-muted);">추가 입력 필요</div><div class="text-2xl font-bold mt-1">${allRows.length - connected}개</div></div>
+    </div>
+    <div class="card" style="overflow:hidden;"><div style="overflow-x:auto;">
+      <table class="data-table" style="min-width:3000px;">
+        <thead><tr><th>지표</th><th>부서</th><th>회의체</th><th>목표</th><th>항목</th><th class="text-right">'26년 목표</th><th class="text-right">'25년실적</th><th class="text-right">26년 누적</th><th class="text-right">목표대비</th>${EXEC_PLAN_PERIODS.map(item => `<th class="text-right">'26년 ${Number(item.slice(5))}월</th>`).join('')}</tr></thead>
+        <tbody>${filteredRows.map(row => `<tr>
+          <td class="font-semibold">${row.indicator}</td><td>${row.department}</td><td>${row.committee}</td><td>${row.goal || '-'}</td><td>${row.item}</td>
+          <td class="text-right">${cellDisplay(row, 'target26', row.annualTarget)}</td>
+          <td class="text-right">${cellDisplay(row, 'actual25', row.lyActual)}</td>
+          <td class="text-right font-semibold">${cellDisplay(row, 'cumulative26', row.cumulativeActual)}</td>
+          <td class="text-right">${(() => { const target = focusKpiStoredValue(row, 'target26', row.annualTarget); const actual = focusKpiStoredValue(row, 'cumulative26', row.cumulativeActual); return percentText(row.kpi ? row.cumulativeAchievement : (Number(target) ? Number(actual || 0) / Number(target) * 100 : null)); })()}</td>
+          ${EXEC_PLAN_PERIODS.map(month => { const source = row.kpi ? getMonthlyValue(month, row.kpi.id)?.actual : null; return `<td class="text-right">${cellDisplay(row, month, source)}</td>`; }).join('')}
+        </tr>`).join('')}</tbody>
+      </table>
+    </div></div>
+  `;
 };
 
 // ============================================================================
