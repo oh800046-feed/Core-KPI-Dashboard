@@ -3195,8 +3195,8 @@ PAGES.overview = function(container) {
       </div>
     </div>
 
-    <!-- Row 2: 연말 전망 + 데이터 연결 상태 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+    <!-- Row 2: 연말 전망 -->
+    <div class="mb-5">
       <div class="card p-4">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold">연말 전망: 사업목표 vs 실행계획</h3>
@@ -3204,40 +3204,6 @@ PAGES.overview = function(container) {
         </div>
         <div id="chart-plan-forecast" style="height: 280px;"></div>
       </div>
-      <div class="card p-4">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold">데이터 연결 상태</h3>
-          <span class="badge badge-good">산출 불가 지표 제외</span>
-        </div>
-        <div id="overview-data-status" style="height: 280px;"></div>
-      </div>
-    </div>
-
-    <!-- Row 3: Insights + Actions -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-      <div class="card p-4">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold">Top 5 핵심 인사이트 (이번 달)</h3>
-          <button class="text-xs font-medium" style="color: var(--color-accent);" onclick="navigate('insights')">전체보기 →</button>
-        </div>
-        <div id="top-insights"></div>
-      </div>
-      <div class="card p-4">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold">Action Plan 진행 현황</h3>
-          <button class="text-xs font-medium" style="color: var(--color-accent);" onclick="navigate('actions')">전체보기 →</button>
-        </div>
-        <div id="action-status" class="grid grid-cols-4 gap-2 mb-3"></div>
-        <div id="action-list"></div>
-      </div>
-    </div>
-
-    <!-- Row 4: Decision Items -->
-    <div class="card p-4 mb-3" style="border-left: 4px solid var(--color-critical);">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="font-bold">📌 이번 달 경영진 의사결정 필요 항목</h3>
-      </div>
-      <div id="decision-items"></div>
     </div>
   `;
 
@@ -3245,10 +3211,6 @@ PAGES.overview = function(container) {
   renderTrendChart();
   renderStatusChart();
   renderPlanForecastChart();
-  renderOverviewDataStatus();
-  renderTopInsights(insights);
-  renderActionStatus();
-  renderDecisionItems(insights);
 };
 
 function renderScorecards(kpiIds) {
@@ -8359,7 +8321,7 @@ function buildDepartmentPage(deptName, container) {
     </div>
 
     ${deptName === '생산' ? renderProductionReports() : ''}
-    ${renderMeetingBlueprint(deptName)}
+    ${['물류','기획'].includes(deptName) ? '' : renderMeetingBlueprint(deptName)}
     ${renderPlanningFinanceSnapshot(deptName)}
     ${renderPlanningWaterfallSection(deptName)}
 
@@ -8389,6 +8351,7 @@ function buildDepartmentPage(deptName, container) {
     <div id="dept-special" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5"></div>
 
     <!-- 인사이트 -->
+    ${deptName === '영업' ? '' : `
     <div class="card p-4 mb-3">
       <h3 class="font-bold mb-3">${deptName} 관련 인사이트 (${insights.length}건)</h3>
       <div id="dept-insights">${insights.length ? insights.map(ins => `
@@ -8403,6 +8366,7 @@ function buildDepartmentPage(deptName, container) {
         </div>
       `).join('') : '<div class="text-sm py-4 text-center" style="color: var(--color-text-muted);">관련 인사이트가 없습니다.</div>'}</div>
     </div>
+    `}
   `;
 
   // Render Hero KPIs
@@ -10931,8 +10895,7 @@ function renderDeptSpecial(dept) {
       '<div class="card p-4"><h3 class="font-bold mb-1">\uC591\uACC4 \uC6D4\uBCC4 \uD310\uB9E4\uB7C9</h3><p class="text-xs mb-3" style="color: var(--color-text-muted);">' + salesActualCaption + '</p><div id="sales-livestock-sal003" style="height: 260px;"></div></div>',
       '<div class="card p-4"><h3 class="font-bold mb-1">\uCD95\uC6B0 \uC6D4\uBCC4 \uD310\uB9E4\uB7C9</h3><p class="text-xs mb-3" style="color: var(--color-text-muted);">' + salesActualCaption + '</p><div id="sales-livestock-sal004" style="height: 260px;"></div></div>',
       '<div class="card p-4"><h3 class="font-bold mb-1">\uC591\uC5B4 \uC6D4\uBCC4 \uD310\uB9E4\uB7C9</h3><p class="text-xs mb-3" style="color: var(--color-text-muted);">' + salesActualCaption + '</p><div id="sales-livestock-sal005" style="height: 260px;"></div></div>',
-      '<div class="card p-4"><h3 class="font-bold mb-1">\uC720\uD1B5 \uC6D4\uBCC4 \uC21C\uB9E4\uCD9C\uC561</h3><p class="text-xs mb-3" style="color: var(--color-text-muted);">' + salesActualCaption + '</p><div id="sales-distribution-revenue" style="height: 260px;"></div></div>',
-      '<div class="card p-4 lg:col-span-2"><h3 class="font-bold mb-3">\uB9E4\uCD9C \uBCC0\uB3D9\uC694\uC778 \uBD84\uC11D (Waterfall)</h3><div id="sales-waterfall" style="height: 280px;"></div></div>'
+      '<div class="card p-4"><h3 class="font-bold mb-1">\uC720\uD1B5 \uC6D4\uBCC4 \uC21C\uB9E4\uCD9C\uC561</h3><p class="text-xs mb-3" style="color: var(--color-text-muted);">' + salesActualCaption + '</p><div id="sales-distribution-revenue" style="height: 260px;"></div></div>'
     ].join('');
 
     renderSalesDemandForecastAccuracyChart();
@@ -11020,7 +10983,6 @@ function renderDeptSpecial(dept) {
       renderNoDataMessage('sales-distribution-revenue', '\uC720\uD1B5 \uC21C\uB9E4\uCD9C\uC561 \uB370\uC774\uD130\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.');
     }
 
-    renderNoDataMessage('sales-waterfall', '\uB9E4\uCD9C \uBCC0\uB3D9\uC694\uC778 Waterfall\uC740 \uCC28\uC774\uBD84\uC11D \uC6D0\uCC9C\uC744 \uC5F0\uACB0\uD55C \uD6C4 \uD45C\uC2DC\uD569\uB2C8\uB2E4.');
     return;
   }
 
@@ -12291,6 +12253,12 @@ function prpCommit(edit) {
   prpSaved = next;
 }
 function prpValue(table, row, col) { return prpRecord().cells?.[table]?.[row]?.[col] ?? null; }
+function prpExtraOverviewValue(factory, row) {
+  const overview = String(prpRecord().notes?.[factory]?.overview || '');
+  const escaped = String(row).replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&');
+  const match = overview.match(new RegExp('(?:^|\\n)[ \\t]*' + escaped + '[ \\t]*[:：]?[ \\t]*([+-]?[\\d,]+(?:\\.\\d+)?)', 'm'));
+  return match ? Number(match[1].replace(/,/g, '')) : null;
+}
 function prpPut(record, table, row, col, value) {
   record.cells[table] ||= {};
   record.cells[table][row] ||= {};
@@ -12303,7 +12271,7 @@ function prpDescriptor(kind=prpInputKind, factory=prpFactory) {
   if (kind === 'capacity') return {
     id:'capacity-'+factory, title:factory+'공장 공급능력', meta:['Process'],
     rows:PRP_PROCESSES[factory].map((name,i)=>({id:name, meta:[PRP_PROCESS_LABELS[name]||name], total:i===0, decimals:0})),
-    cols:[{id:'capa',label:'월간 Capa'}, ...prpMonths(s.from,s.to).map(prpMonthColumn), {id:'status',label:s.to+'월 상태',text:true}]
+    cols:[{id:'capa',label:'월간 Capa'}, ...prpMonths(1,12).map(prpMonthColumn), {id:'status',label:'12월 상태',text:true}]
   };
   if (kind === 'extra') return {
     id:'extra-'+factory, title:factory+'공장 추가 공급 가능량', meta:['구분'],
@@ -12344,7 +12312,7 @@ function prpStyle() { return `<style>
   .prp select,.prp textarea,.prp input{color:var(--color-text);background:var(--color-card);border:1px solid var(--color-border);border-radius:3px;font:inherit}
   .prp select{padding:5px;max-width:100%;min-width:0}.prp-tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--color-border);margin-bottom:12px;gap:4px}
   .prp-tabs button{padding:8px 14px;border-bottom:3px solid transparent;font-size:13px}.prp-tabs button[aria-selected="true"]{border-color:#1588a3;color:var(--color-accent);font-weight:700}
-  .prp-supply{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(260px,1fr);gap:18px;align-items:start}.prp-supply>*{min-width:0}
+  .prp-supply{display:block;min-width:0}.prp-supply>*{min-width:0}
   .prp-scroll{overflow:auto;max-width:100%;border:1px solid var(--color-border);background:var(--color-card)}
   .prp table{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed;font-variant-numeric:tabular-nums}
   .prp th,.prp td{border:1px solid var(--color-border);padding:7px 6px;text-align:right;vertical-align:middle;white-space:nowrap}
@@ -12365,7 +12333,7 @@ function prpStyle() { return `<style>
   .prp-edit-table input{width:100%;min-width:0;padding:7px 4px;text-align:right;border-color:transparent;border-radius:0;font-size:12px}.prp-edit-table input:focus{outline:2px solid #1588a3;outline-offset:-2px}
   .prp .prp-edit-table td{padding:0}.prp-edit-table th{font-size:11px}.prp-field-label{display:block;font-size:12px;font-weight:600;margin-top:10px}
   .prp-message{font-size:12px;min-height:25px;line-height:1.7;margin:8px 0;color:var(--color-good);overflow-wrap:anywhere}.prp-message[data-error="true"]{color:var(--color-critical)}
-  @media(max-width:1100px){.prp-supply{grid-template-columns:minmax(0,1fr)}.prp-cards{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))}}
+  @media(max-width:1100px){.prp-cards{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))}}
   @media(max-width:600px){.prp-tools{width:100%}.prp-tools label{max-width:100%;flex-wrap:wrap}.prp-tools button{max-width:100%;overflow-wrap:anywhere}.prp h2{font-size:14px}}
   @media print{.prp-tools,.prp-tabs{display:none}.prp-scroll{overflow:visible}.prp table{min-width:0!important}.prp section{break-inside:avoid}}
   </style>`; }
@@ -12377,7 +12345,7 @@ function prpHead(desc, editable=false) {
     if(c.id==='previous') return desc.id==='metrics'?(Number(prpYear())-1)+'년<br>실적':'전년<br>실적';
     if(c.id==='plan') return '사업<br>계획';
     if(desc.id.startsWith('capacity-') && c.month) return prpEscape(c.label)+'<br>생산톤수';
-    if(c.id==='status') return s.to+'월 예상<br>가동률';
+    if(c.id==='status') return '12월 예상<br>가동률';
     return prpEscape(c.label);
   };
   if (!grouped) return '<thead><tr>'+desc.meta.map(t=>'<th>'+prpEscape(t)+'</th>').join('')+desc.cols.map(c=>'<th>'+label(c)+'</th>').join('')+'</tr></thead>';
@@ -12393,7 +12361,7 @@ function prpTable(desc, editable=false) {
   const capacity = desc.id.startsWith('capacity-');
   const extra = desc.id.startsWith('extra-');
   const metaWidths = capacity ? [155] : extra ? [175] : desc.id==='cost' ? [74,80] : [65,72,104,72];
-  const minWidth = metaWidths.reduce((a,b)=>a+b,0)+desc.cols.length*(extra?110:editable?90:65);
+  const minWidth = metaWidths.reduce((a,b)=>a+b,0)+desc.cols.length*(extra?110:capacity?60:editable?90:65);
   const cols = metaWidths.map(w=>'<col style="width:'+w+'px">').join('')+desc.cols.map(()=>'<col>').join('');
   const body = desc.rows.map((row,ri)=>{
     const meta = row.meta.map((value,i)=>{
@@ -12404,11 +12372,12 @@ function prpTable(desc, editable=false) {
       return '<th class="prp-meta" rowspan="'+span+'">'+prpEscape(value)+'</th>';
     }).join('');
     const cells=desc.cols.map((col,ci)=>{
-      const value=prpValue(desc.id,row.id,col.id);
+      const enteredValue=prpValue(desc.id,row.id,col.id);
+      const value=enteredValue ?? (extra && col.id==='tons' ? prpExtraOverviewValue(desc.id.replace('extra-',''),row.id) : null);
       if(editable) return `<td><input type="text" inputmode="${col.text?'text':'decimal'}" aria-label="${prpEscape(row.meta.join(' ')+' '+col.label)}" data-prp-row="${ri}" data-prp-col="${ci}" value="${prpEscape(value)}" onchange="prpEditCell(this)" onpaste="prpPasteCells(event)"></td>`;
       const capa=prpValue(desc.id,row.id,'capa');
       if(col.id==='status') {
-        const last=prpValue(desc.id,row.id,'m'+prpRecord().settings.to);
+        const last=prpValue(desc.id,row.id,'m12');
         const ratio=typeof capa==='number' && capa>0 && typeof last==='number' ? last/capa*100 : null;
         const over=ratio!==null && ratio>100;
         const status=value ?? (over?'초과':ratio===null?null:prpFormat(ratio,1)+'%');
@@ -12433,11 +12402,8 @@ function renderProductionReports() {
       return '<div class="prp-kpi"><div>'+name+'</div><strong>'+prpFormat(prpValue('metrics',row,'m'+s.actualMonth),decimals)+' <small>'+unit+'</small></strong><small>전년 '+prpFormat(prpValue('metrics',row,'previous'),decimals)+' · 목표 '+prpFormat(prpValue('metrics',row,'target'),decimals)+'</small></div>';
     }).join('');
     return `<div id="production-reports" class="prp">${prpStyle()}
-      <section id="prp-report-supply"><div class="prp-bar"><h2>공급전략 · ${prpYear()}년 ${s.from}~${s.to}월</h2><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('supply',this)">표 PNG 다운로드</button><button class="btn-secondary" onclick="prpDownloadReportPng('supply-full',this)">전체 PNG</button><button class="btn-secondary" onclick="openProductionReportInput()">데이터 입력</button></div></div>
-        ${prpFactoryTabs()}<div class="prp-supply">${prpTable(prpDescriptor('capacity'))}<div>
-          <div id="prp-report-extra" class="prp-notes"><div class="prp-note-heading"><h3>추가 공급 가능 여력</h3><button class="prp-note-download no-print" title="추가 공급 가능 여력 PNG 다운로드" onclick="prpDownloadReportPng('extra',this)">PNG</button></div><div class="prp-note-body">${prpEscape(notes.overview||'미입력')}</div>${prpTable(prpDescriptor('extra'))}</div>
-          <div id="prp-report-risk" class="prp-notes"><div class="prp-note-heading"><h3>주요 리스크 및 생산 대응 (Catch-up)</h3><button class="prp-note-download no-print" title="주요 리스크 및 생산 대응 PNG 다운로드" onclick="prpDownloadReportPng('risk',this)">PNG</button></div><div class="prp-note-body">${prpEscape(notes.risk||'미입력')}</div></div>
-        </div></div>
+      <section id="prp-report-supply"><div class="prp-bar"><h2>공급전략 · ${prpYear()}년 1~12월</h2><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('supply',this)">표 PNG 다운로드</button><button class="btn-secondary" onclick="prpDownloadReportPng('supply-full',this)">전체 PNG</button><button class="btn-secondary" onclick="openProductionReportInput()">데이터 입력</button></div></div>
+        ${prpFactoryTabs()}<div class="prp-supply">${prpTable(prpDescriptor('capacity'))}</div>
       </section>
       <section id="prp-report-cost"><div class="prp-bar"><h2>제조원가 실적 & 예측 자료</h2><span>단위: 원/kg</span><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('cost',this)">PNG 다운로드</button></div></div>${prpTable(prpDescriptor('cost'))}</section>
       <section id="prp-report-metrics"><div class="prp-bar"><h2>생산성 관리지표 · ${prpFactory}공장 ${s.actualMonth?s.actualMonth+'월 실적':'실적 미마감'}</h2><span>${prpYear()}년</span><div class="prp-tools no-print"><button class="btn-secondary" onclick="prpDownloadReportPng('metrics',this)">PNG 다운로드</button></div></div><div class="prp-cards">${cards}</div>${prpTable(prpDescriptor('metrics'))}</section>
@@ -12476,7 +12442,7 @@ async function prpBuildReportPng(kind) {
     .prp.prp-export section{margin:0;}
     .prp.prp-export .prp-bar{flex-wrap:nowrap;}
     .prp.prp-export .prp-bar h2{font-size:20px;}
-    .prp.prp-export .prp-supply{grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);}
+    .prp.prp-export .prp-supply{display:block;}
     .prp.prp-export .prp-cards{grid-template-columns:repeat(5,minmax(0,1fr));}
     .prp.prp-export .prp-scroll{overflow:visible;max-width:none;max-height:none;height:auto;}
     .prp.prp-export table{width:100%;font-size:13px;}
@@ -12544,8 +12510,7 @@ async function prpBuildReportPng(kind) {
       root.style.width=Math.ceil(Math.max(680,...Array.from(clone.querySelectorAll('table'),t=>parseFloat(t.style.minWidth)+28)))+'px';
     } else if(supply) {
       const tableWidth=Number.parseFloat(supply.querySelector('table').style.minWidth);
-      const extraWidth=Number.parseFloat(supply.querySelector('.prp-notes table').style.minWidth);
-      root.style.width=Math.ceil(Math.max(1600,(tableWidth+4)*2.9/1.9+70,(extraWidth+32)*2.9+70))+'px';
+      root.style.width=Math.ceil(Math.max(960,tableWidth+48))+'px';
     } else {
       root.style.width=Math.ceil(Math.max(1600,...Array.from(clone.querySelectorAll('table'),t=>parseFloat(t.style.minWidth)+52)))+'px';
     }
@@ -12608,18 +12573,15 @@ function renderProductionReportInput() {
     return `<div id="production-report-input" class="prp prp-editor">${prpStyle()}
       <div class="prp-bar"><h2>생산 장표 입력 · ${prpYear()}년</h2><div class="prp-tools"><button class="btn-secondary" onclick="prpDownloadWorkbook()">Excel 양식 다운로드</button><button class="btn-secondary" onclick="navigate('dept-production')">생산탭 보기</button></div></div>
       <div class="prp-tools">
-        <label>양식<select id="prp-kind" onchange="prpChangeInput('kind',this.value)">${[['capacity','공급능력'],['extra','추가 공급 가능량'],['cost','제조원가'],['metrics','생산성 관리지표']].map(([id,label])=>'<option value="'+id+'" '+(id===prpInputKind?'selected':'')+'>'+label+'</option>').join('')}</select></label>
+        <label>양식<select id="prp-kind" onchange="prpChangeInput('kind',this.value)">${[['capacity','공급능력'],['cost','제조원가'],['metrics','생산성 관리지표']].map(([id,label])=>'<option value="'+id+'" '+(id===prpInputKind?'selected':'')+'>'+label+'</option>').join('')}</select></label>
         <label>공장<select id="prp-factory" ${['cost','metrics'].includes(prpInputKind)?'disabled':''} onchange="prpChangeInput('factory',this.value)">${PRP_FACTORIES.map(f=>'<option '+(f===prpFactory?'selected':'')+'>'+f+'</option>').join('')}</select></label>
         <label>실적 마감<select aria-label="실적 마감" onchange="prpSetting('actualMonth',this.value)">${prpOptions(prpMonths(0,12),s.actualMonth)}</select></label>
-        <label>공급계획 시작<select aria-label="공급계획 시작" onchange="prpSetting('from',this.value)">${prpOptions(prpMonths(),s.from)}</select></label>
-        <label>종료<select aria-label="공급계획 종료" onchange="prpSetting('to',this.value)">${prpOptions(prpMonths(),s.to)}</select></label>
       </div>
       <label class="prp-field-label" for="prp-paste">Excel 붙여넣기</label>
       <textarea id="prp-paste" spellcheck="false" aria-label="Excel 붙여넣기"></textarea>
       <div class="prp-tools"><button class="btn-primary" onclick="prpApplyPaste()">붙여넣기 반영</button><button class="btn-secondary" onclick="prpCopyTemplate()">현재 표 복사</button><button class="btn-secondary" onclick="prpClearPaste()">입력창 비우기</button></div>
       <div id="prp-message" class="prp-message" role="status" aria-live="polite"></div>
       ${prpTable(prpDescriptor(),true)}
-      ${['capacity','extra'].includes(prpInputKind)?`<label class="prp-field-label" for="prp-overview">${prpFactory}공장 · 추가 공급 가능 여력</label><textarea id="prp-overview" onchange="prpSaveNote('overview',this)">${prpEscape(notes.overview||'')}</textarea><label class="prp-field-label" for="prp-risk">주요 리스크 및 생산 대응 (Catch-up)</label><textarea id="prp-risk" onchange="prpSaveNote('risk',this)">${prpEscape(notes.risk||'')}</textarea>`:''}
     </div>`;
   } catch(err) { return '<p role="alert">'+prpEscape(err.message)+'</p>'; }
 }
@@ -12768,14 +12730,12 @@ function prpDownloadWorkbook() {
   try {
     if(typeof XLSX==='undefined') throw new Error('Excel 다운로드 라이브러리를 불러오지 못했습니다.');
     const workbook=XLSX.utils.book_new();
-    const descriptors=PRP_FACTORIES.flatMap(f=>[prpDescriptor('capacity',f),prpDescriptor('extra',f)]).concat([prpDescriptor('cost'),prpDescriptor('metrics')]);
+    const descriptors=PRP_FACTORIES.map(f=>prpDescriptor('capacity',f)).concat([prpDescriptor('cost'),prpDescriptor('metrics')]);
     descriptors.forEach(d=>{
       const sheet=XLSX.utils.aoa_to_sheet(prpTemplateRows(d));
       sheet['!cols']=[...d.meta.map(()=>({wch:20})),...d.cols.map(()=>({wch:16}))];
       XLSX.utils.book_append_sheet(workbook,sheet,d.title.slice(0,31));
     });
-    const notes=[['공장','추가 공급 가능 여력','주요 리스크 및 생산 대응'],...PRP_FACTORIES.map(f=>[f,prpRecord().notes[f]?.overview||'',prpRecord().notes[f]?.risk||''])];
-    XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(notes),'공급전략 비고');
     XLSX.writeFile(workbook,'생산_장표_입력양식_'+prpYear()+'.xlsx');
     prpMessage('Excel 양식 다운로드 완료');
   } catch(err) { prpMessage(err.message,true); }
